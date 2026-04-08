@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-pink: #fdf2f8;
+  --color-brand-rose: #fb7185;
+  --color-brand-cream: #fffdf0;
+  --color-brand-gold: #d4af37;
+  
+  --font-serif: "Playfair Display", serif;
+  --font-sans: "Inter", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-brand-cream text-slate-900 font-sans;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif;
+  }
+}
