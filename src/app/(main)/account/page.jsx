@@ -46,52 +46,47 @@ export default function Account() {
     }
   }, [user]);
 
-  const fetchUserReviews = () => {
+  const fetchUserReviews = async () => {
     try {
-      const allReviews = JSON.parse(localStorage.getItem('aura_reviews') || '[]');
-      const filtered = allReviews.filter(r => r.userId === user?.uid);
-      setUserReviews(filtered);
+      const response = await api.getReviews({ userId: user?.id || user?.uid });
+      if (response.success) {
+        setUserReviews(response.data);
+      }
     } catch (error) {
       console.error("Fetch reviews error:", error);
     }
   };
 
-  const handleUpdateReview = (reviewId, newRating, newComment) => {
+  const handleUpdateReview = async (reviewId, newRating, newComment) => {
     try {
-      const allReviews = JSON.parse(localStorage.getItem('aura_reviews') || '[]');
-      const updated = allReviews.map(r => 
-        r.id === reviewId ? { ...r, rating: newRating, comment: newComment } : r
-      );
-      localStorage.setItem('aura_reviews', JSON.stringify(updated));
-      fetchUserReviews();
-      setEditingReview(null);
+      const response = await api.updateReview(reviewId, { rating: newRating, comment: newComment });
+      if (response.success) {
+        fetchUserReviews();
+        setEditingReview(null);
+      }
     } catch (error) {
       console.error("Update review error:", error);
     }
   };
 
-  const handleDeleteReview = (reviewId) => {
+  const handleDeleteReview = async (reviewId) => {
     if (!window.confirm('Delete this review?')) return;
     try {
-      const allReviews = JSON.parse(localStorage.getItem('aura_reviews') || '[]');
-      const updated = allReviews.filter(r => r.id !== reviewId);
-      localStorage.setItem('aura_reviews', JSON.stringify(updated));
-      fetchUserReviews();
+      const response = await api.deleteReview(reviewId);
+      if (response.success) {
+        fetchUserReviews();
+      }
     } catch (error) {
       console.error("Delete review error:", error);
     }
   };
 
-  const fetchOrders = () => {
+  const fetchOrders = async () => {
     try {
-      const localOrders = JSON.parse(localStorage.getItem('aura_orders') || '[]');
-      const userMockOrders = mockOrders.filter(o => o.userId === user?.uid);
-      
-      const combinedOrders = [...localOrders, ...userMockOrders].sort((a, b) => 
-        new Date(b.createdAt) - new Date(a.createdAt)
-      );
-      
-      setOrders(combinedOrders);
+      const response = await api.getUserOrders(user?.id || user?.uid);
+      if (response.success) {
+        setOrders(response.data);
+      }
     } catch (error) {
       console.error("Fetch orders error:", error);
     } finally {
@@ -102,11 +97,14 @@ export default function Account() {
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    updateProfile(profileForm);
-    setIsSubmitting(false);
-    setIsEditing(false);
+    try {
+      await updateProfile(profileForm);
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Profile update error:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!user) {

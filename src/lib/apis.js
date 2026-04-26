@@ -231,15 +231,15 @@ app.get('/api/orders/user/:userId', (req, res) => {
 
 // POST create order
 app.post('/api/orders', (req, res) => {
-  const { user, products, total, paymentMethod } = req.body;
-  if (!user || !products || !total) {
-    return res.status(400).json({ success: false, message: 'User, products, and total are required' });
+  const { user, items, total, paymentMethod } = req.body;
+  if (!user || !items || !total) {
+    return res.status(400).json({ success: false, message: 'User, items, and total are required' });
   }
 
   const newOrder = {
     id: 'ORD-' + Date.now(),
     user,
-    products,
+    items,
     total,
     paymentMethod: paymentMethod || 'COD',
     status: 'pending',
@@ -289,6 +289,53 @@ app.post('/api/payment/verify', (req, res) => {
     message: 'Payment verified successfully',
     trxId
   });
+});
+
+let reviews = [
+  { id: 'rev-1', userId: 'admin-1', productId: '1', rating: 5, comment: 'Amazing quality!', createdAt: new Date() }
+];
+
+// -------------------- REVIEWS SECTION --------------------
+
+// GET all reviews or by product/user
+app.get('/api/reviews', (req, res) => {
+  const { productId, userId } = req.query;
+  let filtered = reviews;
+  if (productId) filtered = filtered.filter(r => r.productId === productId);
+  if (userId) filtered = filtered.filter(r => r.userId === userId);
+  res.json({ success: true, data: filtered });
+});
+
+// POST create review
+app.post('/api/reviews', (req, res) => {
+  const { userId, userName, productId, rating, comment } = req.body;
+  const newReview = {
+    id: 'REV-' + Date.now(),
+    userId,
+    userName: userName || 'Anonymous',
+    productId,
+    rating,
+    comment,
+    createdAt: new Date()
+  };
+  reviews.push(newReview);
+  res.status(201).json({ success: true, data: newReview });
+});
+
+// PUT update review
+app.put('/api/reviews/:id', (req, res) => {
+  const index = reviews.findIndex(r => r.id === req.params.id);
+  if (index === -1) return res.status(404).json({ success: false, message: 'Review not found' });
+  reviews[index] = { ...reviews[index], ...req.body, id: req.params.id };
+  res.json({ success: true, data: reviews[index] });
+});
+
+// DELETE review
+app.delete('/api/reviews/:id', (req, res) => {
+  const index = reviews.findIndex(r => r.id === req.params.id);
+  if (index === -1) return res.status(404).json({ success: false, message: 'Review not found' });
+  reviews.splice(index, 1);
+  res.json({ success: true, message: 'Review deleted' });
 });
 
 // -------------------- SERVER START --------------------

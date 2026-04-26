@@ -97,7 +97,7 @@ export default function Checkout() {
           phone: currentUser.phone,
           isGuest: currentUser.isGuest || false
         },
-        products: cart.map((item) => ({
+        items: cart.map((item) => ({
           id: item.id,
           name: item.name,
           price: item.price,
@@ -122,21 +122,18 @@ export default function Checkout() {
         createdAt: new Date().toISOString()
       };
 
-      if (formData.paymentMethod === 'Online') {
-        sessionStorage.setItem('pending_order', JSON.stringify(orderData));
-        router.push('/payment');
-        return;
-      }
-
-      // COD Path
-      const existingOrders = JSON.parse(localStorage.getItem('aura_orders') || '[]');
-      localStorage.setItem('aura_orders', JSON.stringify([orderData, ...existingOrders]));
+      // API Call to create order
+      const response = await api.createOrder(orderData);
       
-      clearCart();
-      router.push(`/success?orderId=${orderData.id}`);
+      if (response.success) {
+        clearCart();
+        router.push(`/success?orderId=${orderData.id}`);
+      } else {
+        throw new Error(response.message || "Failed to place order");
+      }
     } catch (error) {
       console.error("Order error:", error);
-      alert("Something went wrong while placing your order.");
+      alert(error.message || "Something went wrong while placing your order.");
     } finally {
       setIsSubmitting(false);
       setIsModalOpen(false);

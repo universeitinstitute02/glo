@@ -11,6 +11,8 @@ import mockReviews from '../data/reviews.json';
 
 
 
+import { api } from '@/lib/api-client';
+
 export default function ProductReviews({ productId }) {
   const { user, profile, loginWithGoogle } = useAuth();
   const [reviews, setReviews] = useState([]);
@@ -23,15 +25,15 @@ export default function ProductReviews({ productId }) {
     fetchReviews();
   }, [productId]);
 
-  const fetchReviews = () => {
-    const localReviews = JSON.parse(localStorage.getItem('aura_reviews') || '[]');
-    const productMockReviews = mockReviews.filter(r => r.productId === productId);
-    
-    const combinedReviews = [...localReviews.filter(r => r.productId === productId), ...productMockReviews].sort((a, b) => 
-      new Date(b.createdAt) - new Date(a.createdAt)
-    );
-    
-    setReviews(combinedReviews);
+  const fetchReviews = async () => {
+    try {
+      const response = await api.getReviews({ productId });
+      if (response.success) {
+        setReviews(response.data);
+      }
+    } catch (error) {
+      console.error("Fetch reviews error:", error);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -45,22 +47,19 @@ export default function ProductReviews({ productId }) {
 
     setIsSubmitting(true);
     try {
-      const newReview = {
-        id: `rev-${Math.random().toString(36).substr(2, 9)}`,
+      const response = await api.createReview({
         productId,
-        userId: user.uid,
-        userName: profile.displayName || 'Anonymous',
+        userId: user.id || user.uid,
+        userName: profile.name || profile.displayName || 'Anonymous',
         rating,
-        comment: comment.trim(),
-        createdAt: new Date().toISOString()
-      };
+        comment: comment.trim()
+      });
 
-      const existingReviews = JSON.parse(localStorage.getItem('aura_reviews') || '[]');
-      localStorage.setItem('aura_reviews', JSON.stringify([newReview, ...existingReviews]));
-      
-      setComment('');
-      setRating(5);
-      fetchReviews();
+      if (response.success) {
+        setComment('');
+        setRating(5);
+        fetchReviews();
+      }
     } catch (error) {
       console.error('Error adding review:', error);
     } finally {
@@ -71,9 +70,10 @@ export default function ProductReviews({ productId }) {
   const handleDelete = async (reviewId) => {
     if (!window.confirm('Are you sure you want to delete this review?')) return;
     try {
-      const existingReviews = JSON.parse(localStorage.getItem('aura_reviews') || '[]');
-      localStorage.setItem('aura_reviews', JSON.stringify(existingReviews.filter(r => r.id !== reviewId)));
-      fetchReviews();
+      const response = await api.deleteReview(reviewId);
+      if (response.success) {
+        fetchReviews();
+      }
     } catch (error) {
       console.error('Error deleting review:', error);
     }

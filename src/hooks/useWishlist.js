@@ -4,103 +4,62 @@ import { useState, useEffect, useCallback } from "react";
 
 const WISHLIST_KEY = "wishlist";
 
+import { api } from '@/lib/api-client';
+
 export const useWishlist = () => {
   const [wishlist, setWishlist] = useState([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Helper function to read from localStorage
-  const readWishlist = useCallback(() => {
-    if (typeof window !== "undefined") {
+  useEffect(() => {
+    const fetchWishlist = async () => {
       try {
-        const storedWishlist = localStorage.getItem(WISHLIST_KEY);
-        return storedWishlist ? JSON.parse(storedWishlist) : [];
+        const response = await api.getWishlist();
+        if (response.success) {
+          // Map backend data to frontend structure if needed
+          // Assuming backend returns IDs or full objects
+          setWishlist(response.data);
+        }
       } catch (error) {
-        console.error("Error reading wishlist from localStorage:", error);
-        return [];
+        console.error("Wishlist sync error:", error);
+      } finally {
+        setIsLoaded(true);
       }
-    }
-    return [];
+    };
+    fetchWishlist();
   }, []);
 
-  // Initialize state and setup event listeners for cross-component/tab sync
-  useEffect(() => {
-    setWishlist(readWishlist());
-    setIsLoaded(true);
-
-    const handleStorageChange = (e) => {
-      if (e.key === WISHLIST_KEY) {
-        setWishlist(readWishlist());
+  const addToWishlist = async (product) => {
+    try {
+      const response = await api.addToWishlist(product.id);
+      if (response.success) {
+        setWishlist(prev => [...prev, product]);
       }
-    };
-
-    const handleCustomEvent = () => {
-      setWishlist(readWishlist());
-    };
-
-    // Listen for changes from other tabs
-    window.addEventListener("storage", handleStorageChange);
-    // Listen for changes from other components in the same window
-    window.addEventListener("wishlist-update", handleCustomEvent);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("wishlist-update", handleCustomEvent);
-    };
-  }, [readWishlist]);
-
-  // Helper function to save to localStorage
-  const saveWishlist = (newWishlist) => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(WISHLIST_KEY, JSON.stringify(newWishlist));
-      setWishlist(newWishlist);
-      // Dispatch custom event to notify other components
-      window.dispatchEvent(new Event("wishlist-update"));
+    } catch (error) {
+      console.error("Add to wishlist error:", error);
     }
   };
 
-  // Add item to wishlist
-  const addToWishlist = (product) => {
-    if (!product || !product.id) return;
-
-    const currentList = readWishlist();
-    if (!currentList.some((item) => item.id === product.id)) {
-      // Ensure we only save required fields based on the structure
-      const wishlistItem = {
-        id: product.id,
-        title: product.title || product.name,
-        price: product.price,
-        image: product.image || (product.images && product.images[0]) || "",
-      };
-      saveWishlist([...currentList, wishlistItem]);
+  const removeFromWishlist = async (productId) => {
+    try {
+      const response = await api.removeFromWishlist(productId);
+      if (response.success) {
+        setWishlist(prev => prev.filter(item => item.id !== productId));
+      }
+    } catch (error) {
+      console.error("Remove from wishlist error:", error);
     }
   };
 
-  // Remove item from wishlist
-  const removeFromWishlist = (productId) => {
-    const currentList = readWishlist();
-    saveWishlist(currentList.filter((item) => item.id !== productId));
-  };
-
-  // Toggle wishlist (Add if not exists, remove if exists)
-  const toggleWishlist = (product) => {
-    if (!product || !product.id) return;
-
-    const currentList = readWishlist();
-    if (currentList.some((item) => item.id === product.id)) {
-      removeFromWishlist(product.id);
+  const toggleWishlist = async (product) => {
+    if (isInWishlist(product.id)) {
+      await removeFromWishlist(product.id);
     } else {
-      addToWishlist(product);
+      await addToWishlist(product);
     }
   };
 
-  // Check if an item is in the wishlist
   const isInWishlist = (productId) => {
-    return wishlist.some((item) => item.id === productId);
-  };
-
-  // Get all wishlist items
-  const getAllWishlistItems = () => {
-    return wishlist;
+    return wishlist.some(item => item.id === productId || item === productId);
   };
 
   return {
@@ -110,7 +69,6 @@ export const useWishlist = () => {
     addToWishlist,
     removeFromWishlist,
     toggleWishlist,
-    isInWishlist,
-    getAllWishlistItems,
+    isInWishlist
   };
 };
