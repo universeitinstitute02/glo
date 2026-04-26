@@ -96,11 +96,8 @@ export default function Account() {
               <UserIcon className="h-5 w-5" /> Profile Info
             </button>
             <button
-              onClick={() => setActiveTab('wishlist')}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold transition-all",
-                activeTab === 'wishlist' ? "bg-brand-pink text-brand-rose" : "text-slate-500 hover:bg-slate-50"
-              )}>
+              onClick={() => router.push('/wishlist')}
+              className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50 transition-all">
               
               <Heart className="h-5 w-5" /> Wishlist
             </button>
@@ -233,18 +230,7 @@ export default function Account() {
             </div>
           }
 
-          {activeTab === 'wishlist' &&
-          <div className="space-y-6">
-              <h2 className="text-3xl font-serif font-bold text-slate-900">My Wishlist</h2>
-              <div className="flex h-64 flex-col items-center justify-center space-y-4 rounded-3xl bg-white text-center shadow-sm">
-                <Heart className="h-12 w-12 text-slate-100" />
-                <p className="text-slate-500">Your wishlist is currently empty.</p>
-                <button onClick={() => router.push('/shop')} className="text-sm font-bold text-brand-rose hover:underline">
-                  Find some favorites
-                </button>
-              </div>
-            </div>
-          }
+
         </div>
       </div>
     </div>);
