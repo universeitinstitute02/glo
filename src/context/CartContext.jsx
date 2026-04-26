@@ -16,19 +16,34 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 const CartContext = createContext(undefined);
 
 export function CartProvider({ children }) {
-  const [cart, setCart] = useState(() => {
-    if (typeof window === 'undefined') return [];
-    const savedCart = localStorage.getItem('aura_cart');
-    return savedCart ? JSON.parse(savedCart) : [];
-  });
+  const [cart, setCart] = useState([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('aura_cart', JSON.stringify(cart));
-  }, [cart]);
+    const savedCart = localStorage.getItem('aura_cart');
+    if (savedCart) {
+      try {
+        setCart(JSON.parse(savedCart));
+      } catch (e) {
+        console.error("Failed to parse cart", e);
+      }
+    }
+    setIsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem('aura_cart', JSON.stringify(cart));
+    }
+  }, [cart, isLoaded]);
 
   const addToCart = (product, quantity, size, color) => {
     setCart((prev) => {
-      const existingItemIndex = prev.findIndex((item) => item.id === product.id);
+      const existingItemIndex = prev.findIndex((item) => 
+        item.id === product.id && 
+        item.selectedSize === size && 
+        item.selectedColor === color
+      );
 
       if (existingItemIndex > -1) {
         const newCart = [...prev];
@@ -67,7 +82,8 @@ export function CartProvider({ children }) {
       updateQuantity,
       clearCart,
       totalItems,
-      totalPrice
+      totalPrice,
+      isLoaded
     }}>
       {children}
     </CartContext.Provider>);

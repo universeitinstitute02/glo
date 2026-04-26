@@ -1,18 +1,26 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import {
-  onAuthStateChanged,
-
-  signInWithPopup,
-  GoogleAuthProvider,
-  signOut } from
-'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase';
-
 
 const AuthContext = createContext(undefined);
+
+const MOCK_USER = {
+  uid: 'admin-123',
+  email: 'mohyminulislam2001@gmail.com',
+  displayName: 'Mohyminul Islam',
+  role: 'admin',
+  wishlist: [],
+  addresses: [
+    {
+      id: 'addr-1',
+      fullName: 'Mohyminul Islam',
+      phone: '01700000000',
+      district: 'Dhaka',
+      area: 'Dhanmondi',
+      address: 'House 123, Road 45'
+    }
+  ]
+};
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -20,72 +28,64 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-
-      if (firebaseUser) {
-        // Fetch or create profile
-        const profileRef = doc(db, 'users', firebaseUser.uid);
-        const profileSnap = await getDoc(profileRef);
-
-        if (profileSnap.exists()) {
-          setProfile(profileSnap.data());
-        } else {
-          // Default admin for the provided email
-          const isAdmin = firebaseUser.email === 'mohyminulislam2001@gmail.com';
-          const newProfile = {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            displayName: firebaseUser.displayName || '',
-            wishlist: [],
-            addresses: [],
-            role: isAdmin ? 'admin' : 'customer'
-          };
-          await setDoc(profileRef, newProfile);
-          setProfile(newProfile);
-        }
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    // Check localStorage for a saved user session
+    const savedUser = localStorage.getItem('aura_user');
+    if (savedUser) {
+      const parsedUser = JSON.parse(savedUser);
+      setUser(parsedUser);
+      setProfile(parsedUser);
+    }
+    setLoading(false);
   }, []);
 
   const loginWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    setLoading(true);
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    setUser(MOCK_USER);
+    setProfile(MOCK_USER);
+    localStorage.setItem('aura_user', JSON.stringify(MOCK_USER));
+    setLoading(false);
   };
 
   const logout = async () => {
-    await signOut(auth);
+    setUser(null);
+    setProfile(null);
+    localStorage.removeItem('aura_user');
   };
 
   const toggleWishlist = async (productId) => {
     if (!user || !profile) {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      await loginWithGoogle();
       return;
     }
 
     const currentWishlist = profile.wishlist || [];
     const newWishlist = currentWishlist.includes(productId) ?
-    currentWishlist.filter((id) => id !== productId) :
-    [...currentWishlist, productId];
+      currentWishlist.filter((id) => id !== productId) :
+      [...currentWishlist, productId];
 
-    const profileRef = doc(db, 'users', user.uid);
-    await setDoc(profileRef, { ...profile, wishlist: newWishlist }, { merge: true });
-    setProfile({ ...profile, wishlist: newWishlist });
+    const updatedProfile = { ...profile, wishlist: newWishlist };
+    setProfile(updatedProfile);
+    setUser(updatedProfile);
+    localStorage.setItem('aura_user', JSON.stringify(updatedProfile));
+  };
+
+  const updateProfile = (newData) => {
+    const updatedProfile = { ...profile, ...newData };
+    setProfile(updatedProfile);
+    setUser(updatedProfile);
+    localStorage.setItem('aura_user', JSON.stringify(updatedProfile));
   };
 
   const isAdmin = profile?.role === 'admin';
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, loginWithGoogle, logout, toggleWishlist, isAdmin }}>
+    <AuthContext.Provider value={{ user, profile, loading, loginWithGoogle, logout, toggleWishlist, updateProfile, isAdmin }}>
       {children}
-    </AuthContext.Provider>);
-
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
@@ -94,4 +94,4 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+}

@@ -6,10 +6,8 @@ import { motion } from 'motion/react';
 import { ShieldCheck, Truck, CreditCard, ShoppingBag, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
-import { db } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
-import { handleFirestoreError, OperationType } from '@/lib/firestore-errors';
+import ConfirmModal from '@/components/ConfirmModal';
 
 const DISTRICTS = [
 { name: 'Dhaka', shipping: 60 },
@@ -40,7 +38,7 @@ export default function Checkout() {
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [couponError, setCouponError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [orderSuccess, setOrderSuccess] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const shippingCost = DISTRICTS.find((d) => d.name === formData.district)?.shipping || 120;
   const discountAmount = totalPrice * appliedDiscount / 100;
@@ -59,16 +57,20 @@ export default function Checkout() {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (!user) {
-      await loginWithGoogle();
+      loginWithGoogle();
       return;
     }
+    setIsModalOpen(true);
+  };
 
+  const handleConfirmOrder = async () => {
     setIsSubmitting(true);
     try {
       const orderData = {
+        id: `ORD-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
         userId: user.uid,
         items: cart.map((item) => ({
           id: item.id,
@@ -80,6 +82,9 @@ export default function Checkout() {
           images: item.images
         })),
         total: grandTotal,
+        subtotal: totalPrice,
+        shipping: shippingCost,
+        discount: discountAmount,
         status: 'pending',
         shippingAddress: {
           fullName: formData.fullName,
@@ -89,51 +94,29 @@ export default function Checkout() {
           address: formData.address
         },
         paymentMethod: formData.paymentMethod,
-        createdAt: serverTimestamp()
+        createdAt: new Date().toISOString()
       };
 
-      const docRef = await addDoc(collection(db, 'orders'), orderData);
-      setOrderSuccess(docRef.id);
+      if (formData.paymentMethod === 'Online') {
+        sessionStorage.setItem('pending_order', JSON.stringify(orderData));
+        router.push('/payment');
+        return;
+      }
+
+      // COD Path
+      const existingOrders = JSON.parse(localStorage.getItem('aura_orders') || '[]');
+      localStorage.setItem('aura_orders', JSON.stringify([orderData, ...existingOrders]));
+      
       clearCart();
+      router.push(`/success?orderId=${orderData.id}`);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'orders');
+      console.error("Order error:", error);
+      alert("Something went wrong while placing your order.");
     } finally {
       setIsSubmitting(false);
+      setIsModalOpen(false);
     }
   };
-
-  if (orderSuccess) {
-    return (
-      <div className="flex h-[80vh] flex-col items-center justify-center space-y-6 px-4 text-center">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="flex h-24 w-24 items-center justify-center rounded-full bg-green-100 text-green-600">
-          
-          <CheckCircle2 className="h-12 w-12" />
-        </motion.div>
-        <div className="space-y-2">
-          <h2 className="text-3xl font-serif font-bold text-slate-900">Order Placed Successfully!</h2>
-          <p className="text-slate-500">Your order ID is <span className="font-bold text-slate-900">#{orderSuccess}</span></p>
-          <p className="text-sm text-slate-400 italic">We've sent a confirmation email to your inbox.</p>
-        </div>
-        <div className="flex flex-col gap-4 sm:flex-row">
-          <button
-            onClick={() => router.push('/account')}
-            className="rounded-full bg-brand-rose px-8 py-4 font-bold text-white shadow-lg shadow-brand-rose/20 transition-all hover:bg-rose-500 hover:scale-105 active:scale-95">
-            
-            Track My Order
-          </button>
-          <button
-            onClick={() => router.push('/')}
-            className="rounded-full border-2 border-brand-rose px-8 py-4 font-bold text-brand-rose transition-all hover:bg-brand-pink hover:scale-105 active:scale-95">
-            
-            Back to Home
-          </button>
-        </div>
-      </div>);
-
-  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -352,6 +335,20 @@ export default function Checkout() {
           </div>
         </div>
       </form>
+
+      <ConfirmModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onConfirm={handleConfirmOrder}
+        isSubmitting={isSubmitting}
+        orderSummary={{
+          itemCount: cart.length,
+          subtotal: totalPrice,
+          shipping: shippingCost,
+          discount: discountAmount,
+          total: grandTotal
+        }}
+      />
     </div>);
 
 }
