@@ -8,6 +8,7 @@ import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import ConfirmModal from '@/components/ConfirmModal';
+import AuthPromptModal from '@/components/AuthPromptModal';
 
 const DISTRICTS = [
 { name: 'Dhaka', shipping: 60 },
@@ -22,22 +23,25 @@ const DISTRICTS = [
 
 export default function Checkout() {
   const { cart, totalPrice, clearCart } = useCart();
-  const { user, loginWithGoogle } = useAuth();
+  const { user, loginWithGoogle, signupGuest } = useAuth();
   const router = useRouter();
 
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
+    email: '',
     district: 'Dhaka',
     area: '',
     address: '',
     paymentMethod: 'COD'
   });
 
+  const [isGuestMode, setIsGuestMode] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [couponError, setCouponError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(!user && !isGuestMode);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const shippingCost = DISTRICTS.find((d) => d.name === formData.district)?.shipping || 120;
@@ -59,20 +63,41 @@ export default function Checkout() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!user) {
-      loginWithGoogle();
-      return;
-    }
     setIsModalOpen(true);
   };
 
   const handleConfirmOrder = async () => {
     setIsSubmitting(true);
     try {
+      let currentUser = user;
+
+      // Handle Guest Checkout
+      if (!user) {
+        const guestResult = await signupGuest({
+          displayName: formData.fullName,
+          email: formData.email || `guest_${Date.now()}@aura.com`,
+          phone: formData.phone,
+        });
+        
+        if (guestResult.success) {
+          // Re-fetch user from localStorage or just use a mock object for order
+          const savedGuest = JSON.parse(localStorage.getItem('aura_user'));
+          currentUser = savedGuest;
+        } else {
+          throw new Error("Guest signup failed");
+        }
+      }
+
       const orderData = {
         id: `ORD-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-        userId: user.uid,
-        items: cart.map((item) => ({
+        user: {
+          uid: currentUser.uid,
+          displayName: currentUser.displayName,
+          email: currentUser.email,
+          phone: currentUser.phone,
+          isGuest: currentUser.isGuest || false
+        },
+        products: cart.map((item) => ({
           id: item.id,
           name: item.name,
           price: item.price,
@@ -85,6 +110,7 @@ export default function Checkout() {
         subtotal: totalPrice,
         shipping: shippingCost,
         discount: discountAmount,
+        paymentMethod: formData.paymentMethod,
         status: 'pending',
         shippingAddress: {
           fullName: formData.fullName,
@@ -93,7 +119,6 @@ export default function Checkout() {
           area: formData.area,
           address: formData.address
         },
-        paymentMethod: formData.paymentMethod,
         createdAt: new Date().toISOString()
       };
 
@@ -118,6 +143,8 @@ export default function Checkout() {
     }
   };
 
+
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <button
@@ -127,7 +154,14 @@ export default function Checkout() {
         <ArrowLeft className="h-4 w-4" /> Back to Cart
       </button>
 
-      <h1 className="mb-12 text-4xl font-serif font-bold text-slate-900">Checkout</h1>
+      <div className="flex items-center justify-between mb-12">
+        <h1 className="text-4xl font-serif font-bold text-slate-900">Checkout</h1>
+        {!user && (
+          <span className="rounded-full bg-slate-100 px-4 py-1 text-xs font-bold text-slate-500 uppercase tracking-widest">
+            Guest Checkout
+          </span>
+        )}
+      </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-12 lg:grid-cols-3">
         {/* Shipping Info */}
@@ -160,6 +194,20 @@ export default function Checkout() {
                   placeholder="e.g., 017XXXXXXXX" />
                 
               </div>
+              
+              {!user && (
+                <div className="space-y-2 sm:col-span-2">
+                  <label className="text-sm font-bold uppercase tracking-widest text-slate-700">Email Address (Optional)</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full rounded-xl border-slate-200 bg-slate-50 p-4 outline-none ring-brand-rose/20 transition-all focus:border-brand-rose focus:ring-4"
+                    placeholder="e.g., guest@example.com" />
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 italic">An account will be created automatically for you.</p>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <label className="text-sm font-bold uppercase tracking-widest text-slate-700">District</label>
                 <select
@@ -348,6 +396,16 @@ export default function Checkout() {
           discount: discountAmount,
           total: grandTotal
         }}
+      />
+
+      <AuthPromptModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onGuestMode={() => {
+          setIsGuestMode(true);
+          setShowAuthModal(false);
+        }}
+        loginWithGoogle={loginWithGoogle}
       />
     </div>);
 

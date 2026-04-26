@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Package, MapPin, Heart, LogOut, User as UserIcon, Clock, Star, MessageSquare, Edit3, Trash2 } from 'lucide-react';
+import { Package, MapPin, Heart, LogOut, User as UserIcon, Clock, Star, MessageSquare, Edit3, Trash2, Chrome } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -111,20 +111,36 @@ export default function Account() {
 
   if (!user) {
     return (
-      <div className="flex h-[60vh] flex-col items-center justify-center space-y-6 px-4 text-center">
+      <div className="flex h-[70vh] flex-col items-center justify-center space-y-8 px-4 text-center">
         <div className="flex h-24 w-24 items-center justify-center rounded-full bg-brand-pink text-brand-rose">
           <UserIcon className="h-12 w-12" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-3xl font-serif font-bold text-slate-900">Welcome to AURA</h2>
-          <p className="text-slate-500">Login to track your orders and manage your wishlist.</p>
+          <h2 className="text-4xl font-serif font-bold text-slate-900">Your AURA Awaits</h2>
+          <p className="mx-auto max-w-sm text-slate-500">Sign in to track your orders, manage your wishlist, and experience the best of AURA.</p>
         </div>
-        <button
-          onClick={loginWithGoogle}
-          className="rounded-full bg-brand-rose px-8 py-4 font-bold text-white shadow-lg shadow-brand-rose/20 transition-all hover:bg-rose-500 hover:scale-105 active:scale-95">
+        
+        <div className="flex w-full max-w-xs flex-col gap-4">
+          <button
+            onClick={() => router.push('/login')}
+            className="w-full rounded-2xl bg-brand-rose py-4 font-bold text-white shadow-lg shadow-brand-rose/20 transition-all hover:bg-rose-500 hover:scale-105 active:scale-95"
+          >
+            Sign In with Email
+          </button>
           
-          Login with Google
-        </button>
+          <button
+            onClick={loginWithGoogle}
+            className="flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-slate-100 bg-white py-4 font-bold text-slate-600 transition-all hover:border-brand-rose hover:text-brand-rose active:scale-[0.98]"
+          >
+            <Chrome className="h-5 w-5" />
+            Google Account
+          </button>
+        </div>
+
+        <p className="text-sm font-medium text-slate-500">
+          New to AURA?{' '}
+          <button onClick={() => router.push('/signup')} className="font-bold text-brand-rose hover:underline">Create an account</button>
+        </p>
       </div>);
 
   }
